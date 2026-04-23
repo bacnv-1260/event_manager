@@ -1,50 +1,122 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+==================
+Version change: (initial) → 1.0.0
+Added sections:
+  - Core Principles (5 principles)
+  - Technology Stack
+  - Development Workflow
+  - Governance
+Templates updated: ✅ constitution.md (initial fill)
+Follow-up TODOs: none
+-->
+
+# Event Manager Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. User-Centric Registration Flow
+The Android app MUST provide a clear, friction-free flow for users to discover
+events, register attendance, and receive confirmation. Registration MUST complete
+in at most 3 taps from the event detail screen. Every screen MUST serve a single
+purpose within this flow; no dead-end or redundant navigation allowed.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+The React admin panel MUST allow event organizers to create, publish, and manage
+events and attendee lists with minimal steps. All destructive actions (delete,
+cancel event) MUST require an explicit confirmation dialog.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Offline-Aware Mobile Architecture
+The Android app MUST remain functional under degraded-network conditions.
+Event browsing and previously registered event data MUST be accessible offline
+via local cache (Room database). Network operations MUST be performed
+asynchronously (Coroutines/Flow); the UI MUST never block on I/O.
+Synchronization MUST resume automatically when connectivity is restored.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### III. Test-First (NON-NEGOTIABLE)
+TDD is mandatory across all three sub-projects:
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+- **Android**: Unit tests MUST be written before feature implementation.
+  Minimum coverage: 80% for ViewModels, UseCases, and Repository classes.
+  UI tests (Espresso/Compose) MUST cover all critical user paths
+  (registration, login, event browsing).
+- **Node.js Backend**: Every API endpoint MUST have integration tests (Jest +
+  Supertest) covering success and error cases before the route is merged.
+- **React Admin**: Component tests (React Testing Library) MUST cover all
+  form submissions and data-table interactions.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+The Red-Green-Refactor cycle MUST be strictly enforced. No feature PR may be
+merged with failing or skipped tests.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. Security & Privacy by Design
+User personal data (name, email, phone) MUST be encrypted in transit (HTTPS/
+TLS 1.2+) and at rest in the database (field-level encryption for PII).
+Android authentication tokens MUST be stored in Android Keystore; never in
+SharedPreferences or plain files.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+The Node.js API MUST:
+- Authenticate all protected routes via short-lived JWT (access token ≤15 min)
+  with refresh-token rotation.
+- Validate and sanitize all input at the API boundary (express-validator or
+  equivalent) to prevent injection attacks (OWASP Top 10).
+- Redact sensitive fields from logs; never expose stack traces to API consumers.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+The React admin panel MUST enforce role-based access control (Admin / Organizer)
+and MUST NOT render routes or actions the current user is not authorized for.
+
+### V. Simplicity & Maintainability
+YAGNI: features are built only when required by a confirmed user story.
+Each sub-project MUST follow a single documented architecture pattern:
+
+- **Android**: MVVM + Clean Architecture (Presentation / Domain / Data layers).
+  Dependencies MUST be injected via Hilt; no static singletons for stateful
+  services.
+- **Node.js**: Layered architecture (Router → Controller → Service →
+  Repository). Business logic MUST reside in Services; Controllers handle only
+  request/response mapping.
+- **React Admin**: Component-based with a global state managed by a single
+  solution (Redux Toolkit or React Query); no ad-hoc prop-drilling beyond 2
+  levels.
+
+## Technology Stack
+
+| Layer | Technology | Notes |
+|-------|-----------|-------|
+| Mobile | Android (Kotlin, Jetpack Compose) | Min SDK 26 (Android 8.0) |
+| Mobile state | ViewModel + Room + Retrofit | MVVM + Clean Architecture |
+| Backend | Node.js (Express, TypeScript) | REST API, versioned under `/api/v1` |
+| Database | PostgreSQL | Managed via an ORM (Prisma or TypeORM) |
+| Auth | JWT (access + refresh tokens) | Issued by the Node.js service |
+| Web admin | React (TypeScript, Vite) | React Query + React Router v6 |
+| CI | GitHub Actions | Lint + test + build on every PR |
+
+All inter-service communication MUST use JSON over HTTPS. The API MUST follow
+REST conventions; breaking changes MUST increment the URL version segment.
+
+## Development Workflow
+
+- Monorepo layout: `android/`, `backend/`, `admin-web/` at the project root.
+- Feature branches MUST follow the naming convention
+  `feature/<issue-id>-<short-description>` and branch off `main`.
+- Every PR MUST include: passing CI (lint + unit/integration tests), a filled
+  spec, and at least one reviewer sign-off before merge.
+- Database schema changes MUST be accompanied by a versioned migration file and
+  MUST NOT break existing data.
+- Android release builds MUST be signed and submitted via the Google Play
+  internal track before promotion to production.
+- All UI changes (Android + React) MUST be validated on at least one
+  small-screen (≤5 in) and one large-screen (≥6 in) profile.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes all other development practices and guidelines for
+the Event Manager project. Amendments MUST be:
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+1. Proposed via a PR modifying this file with a clear rationale.
+2. Reviewed and approved by at least one senior team member.
+3. Accompanied by a migration plan if existing code or architecture is affected.
+
+All PRs and code reviews MUST verify compliance with the principles above.
+Complexity deviations MUST be justified in the PR description. Principle
+violations found during review MUST be resolved before merge.
+
+**Version**: 1.0.0 | **Ratified**: 2026-04-22 | **Last Amended**: 2026-04-22

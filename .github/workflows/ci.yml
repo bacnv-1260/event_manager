@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, '001-event-registration']
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  backend:
+    name: Backend (lint + test)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: event_manager_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/event_manager_test
+      JWT_SECRET: ci-test-secret-32-chars-long-abc
+      JWT_REFRESH_SECRET: ci-test-refresh-secret-32-chars-ab
+      QR_HMAC_SECRET: ci-test-qr-secret-32-chars-long-ab
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run migrations
+        run: npx prisma migrate deploy
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+  admin-web:
+    name: Admin Web (lint + test)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: admin-web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: admin-web/package-lock.json
+
+      - name: Check if initialized
+        id: check
+        run: |
+          if [ -f "package.json" ]; then echo "exists=true" >> $GITHUB_OUTPUT; else echo "exists=false" >> $GITHUB_OUTPUT; fi
+
+      - name: Install dependencies
+        if: steps.check.outputs.exists == 'true'
+        run: npm ci
+
+      - name: Lint
+        if: steps.check.outputs.exists == 'true'
+        run: npm run lint
+
+      - name: Test
+        if: steps.check.outputs.exists == 'true'
+        run: npm test
+
+  android:
+    name: Android (unit test)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Check if initialized
+        id: check
+        run: |
+          if [ -f "gradlew" ]; then echo "exists=true" >> $GITHUB_OUTPUT; else echo "exists=false" >> $GITHUB_OUTPUT; fi
+
+      - name: Setup Gradle
+        if: steps.check.outputs.exists == 'true'
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Run unit tests
+        if: steps.check.outputs.exists == 'true'
+        run: ./gradlew testDebugUnitTest
